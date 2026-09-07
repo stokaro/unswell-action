@@ -1,0 +1,71 @@
+name: Verify published release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact published Unswell release version
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  consumer:
+    name: Consumer (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Write consumer fixtures
+        run: node tests/consumer-fixtures.mjs
+      - name: Check the action repository through the published CLI
+        id: repository
+        uses: ./
+        with:
+          version: ${{ inputs.version }}
+          config: .unswell.yaml
+      - name: Require a policy violation to fail
+        id: violation
+        continue-on-error: true
+        uses: ./
+        with:
+          version: ${{ inputs.version }}
+          paths: bad.md
+          config: policy.yaml
+          working-directory: artifacts/consumer
+      - name: Require malformed source to fail
+        id: malformed
+        continue-on-error: true
+        uses: ./
+        with:
+          version: ${{ inputs.version }}
+          paths: invalid.cs
+          config: policy.yaml
+          working-directory: artifacts/consumer
+      - name: Verify action failures and report contracts
+        env:
+          PASS_CODE: ${{ steps.repository.outputs.exit-code }}
+          BAD_OUTCOME: ${{ steps.violation.outcome }}
+          BAD_CODE: ${{ steps.violation.outputs.exit-code }}
+          BAD_JSON: ${{ steps.violation.outputs.report-json }}
+          BAD_SARIF: ${{ steps.violation.outputs.report-sarif }}
+          ERROR_OUTCOME: ${{ steps.malformed.outcome }}
+          ERROR_CODE: ${{ steps.malformed.outputs.exit-code }}
+          ERROR_JSON: ${{ steps.malformed.outputs.report-json }}
+        run: node tests/verify-consumer.mjs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: consumer-evidence-${{ matrix.os }}
+          path: |
+            ${{ steps.repository.outputs.report-json }}
+            ${{ steps.repository.outputs.report-sarif }}
+            ${{ steps.violation.outputs.report-json }}
+            ${{ steps.violation.outputs.report-sarif }}
+            ${{ steps.malformed.outputs.report-json }}
+          if-no-files-found: error

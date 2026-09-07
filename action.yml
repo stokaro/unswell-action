@@ -1,0 +1,35 @@
+name: Unswell
+description: Reduce AI-style wording in source code and documentation using the offline Unswell engine.
+author: Stokaro
+branding:
+  icon: check-circle
+  color: blue
+inputs:
+  version:
+    description: Exact Unswell release version, with or without the leading v.
+    required: false
+    default: '0.1.0-alpha.1'
+  paths:
+    description: Files or directories to check, one path per line.
+    required: false
+    default: '.'
+  config:
+    description: Optional policy file relative to the working directory.
+    required: false
+    default: ''
+  working-directory:
+    description: Directory containing the project to check, relative to the checked-out workspace.
+    required: false
+    default: '.'
+outputs:
+  exit-code:
+    description: CLI exit code. Zero passes, one means a policy violation, and two means an operational error.
+  report-json:
+    description: Absolute path to the JSON report, if one was written.
+  report-sarif:
+    description: Absolute path to the SARIF report, if one was written.
+  version:
+    description: The exact installed release version.
+runs:
+  using: node24
+  main: src/main.mjs

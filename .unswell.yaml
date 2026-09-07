@@ -1,0 +1,11 @@
+version: 1
+extends: [builtin:strict-v1]
+files:
+  include: ["*.md", "**/*.yml", "**/*.yaml", "src/**/*.mjs", "tests/**/*.mjs"]
+  exclude: ["artifacts/**", "node_modules/**"]
+extraction:
+  exceptions:
+    - id: regression-inputs
+      paths: ["tests/**/*.mjs"]
+      kinds: [string]
+      reason: Test strings include deliberate violations, malformed inputs and expected diagnostics.

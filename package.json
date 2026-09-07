@@ -1,0 +1,13 @@
+{
+  "name": "unswell-action",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "description": "Check source and documentation for AI-style wording using Unswell.",
+  "license": "MIT",
+  "engines": {"node": ">=24"},
+  "scripts": {
+    "test": "node --test tests/check.test.mjs tests/install.test.mjs",
+    "check": "node --check src/main.mjs && node --check src/install.mjs && node --check src/check.mjs"
+  }
+}

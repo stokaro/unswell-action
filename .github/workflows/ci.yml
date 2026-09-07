@@ -1,0 +1,55 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Set the integration executable path
+        shell: bash
+        env:
+          TEST_BINARY: ${{ runner.temp }}/unswell-cli${{ runner.os == 'Windows' && '.exe' || '' }}
+        run: printf 'UNSWELL_TEST_BINARY=%s\n' "$TEST_BINARY" >>"$GITHUB_ENV"
+      - name: Check out the tested Unswell source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: stokaro/unswell
+          ref: 532b826e2991504979a4b64865d9f1fbd4409244
+          path: artifacts/unswell-source
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: artifacts/unswell-source/go.mod
+          cache-dependency-path: artifacts/unswell-source/go.sum
+      - name: Build the real CLI for integration tests
+        working-directory: artifacts/unswell-source
+        shell: bash
+        env:
+          CGO_ENABLED: '0'
+          GOTOOLCHAIN: local
+        run: go build -trimpath -o "$UNSWELL_TEST_BINARY" ./cmd/unswell
+      - run: npm run check
+      - run: npm test
+      - name: Check the action's source and documentation
+        shell: bash
+        run: '"$UNSWELL_TEST_BINARY" check . --config .unswell.yaml --report json:artifacts/dogfood.json'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: action-evidence-${{ matrix.os }}
+          path: artifacts/dogfood.json
+          if-no-files-found: ignore
