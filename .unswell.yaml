@@ -1,7 +1,7 @@
 version: 1
 extends: [builtin:strict-v1]
 files:
-  include: ["*.md", "**/*.yml", "**/*.yaml", "src/**/*.mjs", "tests/**/*.mjs"]
+  include: ["*.md", "**/*.yml", "**/*.yaml", "src/**/*.mjs", "scripts/**/*.mjs", "tests/**/*.mjs"]
   exclude: ["artifacts/**", "node_modules/**"]
 extraction:
   exceptions:

@@ -1,0 +1,64 @@
+name: Publish action version
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: publish-action-version
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'stokaro/unswell-action' && github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Read the tested release version
+        id: release
+        run: |
+          node --input-type=module -e '
+            import { appendFileSync } from "node:fs";
+            import { defaultVersion } from "./src/default-version.mjs";
+            import { releaseVersion } from "./src/install.mjs";
+            appendFileSync(process.env.GITHUB_OUTPUT, "tag=v" + releaseVersion(defaultVersion) + "\n");
+          '
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: publish
+        with:
+          app-id: ${{ vars.PUBLISH_APP_ID }}
+          private-key: ${{ secrets.PUBLISH_APP_KEY }}
+          permission-contents: write
+      - name: Publish the tested action commit without moving existing tags
+        env:
+          GH_TOKEN: ${{ steps.publish.outputs.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          TESTED_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          gh api repos/stokaro/unswell-action/git/matching-refs/tags/ > "$RUNNER_TEMP/tags.json"
+          if jq --exit-status --arg ref "refs/tags/$RELEASE_TAG" 'any(.[]; .ref == $ref)' "$RUNNER_TEMP/tags.json"; then
+            printf 'Preserving existing tag %s\n' "$RELEASE_TAG"
+            gh api repos/stokaro/unswell-action/releases > "$RUNNER_TEMP/releases.json"
+            if jq --exit-status --arg tag "$RELEASE_TAG" 'any(.[]; .tag_name == $tag and .draft == false)' "$RUNNER_TEMP/releases.json"; then
+              exit 0
+            fi
+            jq --exit-status --arg ref "refs/tags/$RELEASE_TAG" --arg sha "$TESTED_COMMIT" \
+              'any(.[]; .ref == $ref and .object.sha == $sha)' "$RUNNER_TEMP/tags.json"
+          else
+            jq -n --arg ref "refs/tags/$RELEASE_TAG" --arg sha "$TESTED_COMMIT" \
+              '{ref:$ref,sha:$sha}' > "$RUNNER_TEMP/tag.json"
+            gh api --method POST repos/stokaro/unswell-action/git/refs --input "$RUNNER_TEMP/tag.json"
+          fi
+          printf 'Default CLI: %s\n\nValidated by main-branch CI at %s.\n' "$RELEASE_TAG" "$TESTED_COMMIT" > "$RUNNER_TEMP/release.md"
+          flags=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" --repo stokaro/unswell-action --verify-tag \
+            --title "Unswell Action $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release.md" "${flags[@]}"
