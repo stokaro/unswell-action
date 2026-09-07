@@ -7,22 +7,30 @@ import path from 'node:path';
 import { releaseAsset } from '../src/install.mjs';
 import { compareVersions, releaseFiles, renderRelease, validateCandidate, validatePull, verifyArchives } from '../scripts/update-release.mjs';
 
-test('update the action metadata and executable default together', async () => {
+test('update the action metadata and executable default together', async (t) => {
   const original = Object.fromEntries(await Promise.all(releaseFiles.map(async (file) => [file, await readFile(file, 'utf8')])));
   // Keep the updater fixture independent of future published defaults.
   original['package.json'] = JSON.stringify({ ...JSON.parse(original['package.json']), version: '0.1.0-alpha.1' });
-  const updated = renderRelease(original, 'v0.2.0-alpha.2');
-  assert.match(updated['action.yml'], /default: '0.2.0-alpha.2'/);
-  assert.equal(JSON.parse(updated['package.json']).version, '0.2.0-alpha.2');
-  assert.equal(updated['src/default-version.mjs'], "export const defaultVersion = '0.2.0-alpha.2';\n");
-  assert.deepEqual(renderRelease(updated, '0.2.0-alpha.2'), updated);
-  assert.throws(() => renderRelease(updated, '0.1.0'), /downgrade/);
-  assert.throws(() => renderRelease(original, '../main'));
-  assert.throws(() => renderRelease({ ...original, 'action.yml': '' }, '0.2.0'));
-  validateCandidate(releaseFiles, updated, updated);
-  assert.throws(() => validateCandidate([], updated, updated));
-  assert.throws(() => validateCandidate([...releaseFiles, '.github/workflows/ci.yml'], updated, updated));
-  assert.throws(() => validateCandidate(releaseFiles, updated, original));
+  for (const [name, newline] of [['LF', '\n'], ['CRLF', '\r\n']]) {
+    await t.test(name, () => {
+      const files = { ...original, 'action.yml': original['action.yml'].replace(/\r?\n/g, newline) };
+      const updated = renderRelease(files, 'v0.2.0-alpha.2');
+      assert.match(updated['action.yml'], /default: '0.2.0-alpha.2'/);
+      assert.equal(updated['action.yml'].replace(/default: '0.2.0-alpha.2'/, "default: '<version>'"),
+        files['action.yml'].replace(/default: '\d[^']*'/, "default: '<version>'"));
+      assert.equal(JSON.parse(updated['package.json']).version, '0.2.0-alpha.2');
+      assert.equal(updated['src/default-version.mjs'], "export const defaultVersion = '0.2.0-alpha.2';\n");
+      assert.deepEqual(renderRelease(updated, '0.2.0-alpha.2'), updated);
+      assert.throws(() => renderRelease(updated, '0.1.0'), /downgrade/);
+      assert.throws(() => renderRelease(files, '../main'));
+      assert.throws(() => renderRelease({ ...files, 'action.yml': '' }, '0.2.0'));
+      assert.throws(() => renderRelease({ ...files, 'action.yml': files['action.yml'].repeat(2) }, '0.2.0'));
+      validateCandidate(releaseFiles, updated, updated);
+      assert.throws(() => validateCandidate([], updated, updated));
+      assert.throws(() => validateCandidate([...releaseFiles, '.github/workflows/ci.yml'], updated, updated));
+      assert.throws(() => validateCandidate(releaseFiles, updated, files));
+    });
+  }
 });
 
 test('release ordering preserves stable and numeric prerelease precedence', () => {

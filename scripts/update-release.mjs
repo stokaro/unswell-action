@@ -52,7 +52,7 @@ export async function verifyArchives(assets, version) {
 
 export function renderRelease(files, value) {
   const version = releaseVersion(value);
-  const pattern = /(^  version:\n(?:    [^\n]*\n)*?    default: ')[^'\n]+('\n)/gm;
+  const pattern = /(^  version:\r?\n(?:    [^\r\n]*\r?\n)*?    default: ')[^'\r\n]+('\r?\n)/gm;
   if ([...files['action.yml'].matchAll(pattern)].length !== 1) {
     throw new Error('Expected exactly one action version default.');
   }
