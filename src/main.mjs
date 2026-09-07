@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { check } from './check.mjs';
 import { install } from './install.mjs';
+import { defaultVersion } from './default-version.mjs';
 
 async function output(name, value) {
   const delimiter = randomUUID();
@@ -23,7 +24,7 @@ async function main() {
   const temporary = await mkdtemp(path.join(process.env.RUNNER_TEMP ?? os.tmpdir(), 'unswell-'));
   const stopToken = randomUUID();
   try {
-    const installed = await install(process.env.INPUT_VERSION || '0.1.0-alpha.1', path.join(temporary, 'install'));
+    const installed = await install(process.env.INPUT_VERSION || defaultVersion, path.join(temporary, 'install'));
     await output('version', installed.version);
     const inputs = {
       paths: process.env.INPUT_PATHS ?? '.',
