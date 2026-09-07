@@ -9,9 +9,9 @@ The action downloads an exact Unswell release, verifies its archive against the
 published SHA-256 manifest, then runs the offline CLI. Linux, macOS and Windows
 are supported on AMD64 and ARM64. No API key or model service is needed.
 
-The first release is being prepared. The default CLI version becomes usable when
-`v0.1.0-alpha.1` exists in the Unswell release list. The integration tests use a
-real CLI built from a pinned source commit until those public archives exist.
+The first alpha is published as `v0.1.0-alpha.1`, with CLI `0.1.0-alpha.1` as its
+default. [Public release checks](https://github.com/stokaro/unswell-action/actions/runs/34134500799)
+passed on Linux, macOS and Windows, including policy and parser failures.
 
 ## Use the action
 
@@ -21,7 +21,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-  - uses: stokaro/unswell-action@main
+  - uses: stokaro/unswell-action@5c4e109d71c1ec16429a62ac1860b97baee3974e # v0.1.0-alpha.1
     id: unswell
     with:
       version: 0.1.0-alpha.1
@@ -39,7 +39,7 @@ steps:
         ${{ steps.unswell.outputs.report-sarif }}
 ```
 
-Replace `main` with a reviewed action commit for a reproducible workflow. The
+Keep the action pinned to a reviewed commit for a reproducible workflow. The
 `version` input pins the CLI independently of the action's revision. Downloading
 the archive and manifest uses HTTPS; the manifest comes from the same Unswell
 release and is not an independent signature.
