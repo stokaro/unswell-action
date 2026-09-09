@@ -79,8 +79,9 @@ The action writes SARIF 2.1.0 but does not upload code-scanning results or reque
 `security-events: write`. A consuming workflow can add its own SARIF upload step.
 Diagnostic levels are preserved after `actions/setup-go`: warnings remain warnings,
 errors remain errors, and CLI notes become GitHub notices. The exit code still
-determines whether the step passes. Diagnostic paths resolve from the configured
-working directory, including directories and files with spaces.
+determines whether the step passes. Diagnostic paths use the CLI's source root:
+the nearest Git checkout, or the working directory outside a checkout. Directories
+and files with spaces are supported.
 
 The action registers matchers with unique owners for each invocation and removes
 them afterward, including when the CLI fails. Consumer matchers stay registered.

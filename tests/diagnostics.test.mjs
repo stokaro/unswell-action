@@ -1,16 +1,28 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable, Writable } from 'node:stream';
 import test from 'node:test';
-import { diagnosticLine, forwardDiagnostics, matchers, reportFailure, withDiagnostics } from '../src/diagnostics.mjs';
+import { diagnosticLine, forwardDiagnostics, matchers, reportFailure, sourceRoot, withDiagnostics } from '../src/diagnostics.mjs';
 
 function capture() {
   const parts = [];
   const stream = new Writable({ write(chunk, _encoding, callback) { parts.push(chunk.toString()); callback(); } });
   return { stream, text: () => parts.join('') };
 }
+
+test('source roots follow the nearest Git directory or worktree marker, with cwd fallback', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'unswell-roots-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const directory = path.join(root, 'project with spaces');
+  await mkdir(directory);
+  assert.equal(await sourceRoot(directory), directory);
+  await mkdir(path.join(root, '.git'));
+  assert.equal(await sourceRoot(directory), root);
+  await writeFile(path.join(directory, '.git'), 'gitdir: ../metadata');
+  assert.equal(await sourceRoot(directory), directory);
+});
 
 test('ECMAScript matchers preserve warning, error, and note fields', () => {
   const patterns = matchers('fixture').problemMatcher;

@@ -1,8 +1,21 @@
 import { randomUUID } from 'node:crypto';
-import { writeFile, rm } from 'node:fs/promises';
+import { lstat, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 const diagnostic = /^(.+?):([0-9]+):([0-9]+): (error|warning|note) \[([^\]]+)\] (.+)$/;
+
+export async function sourceRoot(directory) {
+  // CLI paths are relative to the nearest .git marker, or cwd outside a checkout.
+  for (let current = directory;; current = path.dirname(current)) {
+    try {
+      await lstat(path.join(current, '.git'));
+      return current;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    if (current === path.dirname(current)) return directory;
+  }
+}
 
 export function matchers(owner) {
   return { problemMatcher: [

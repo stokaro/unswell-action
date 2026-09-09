@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
-import { forwardDiagnostics } from './diagnostics.mjs';
+import { forwardDiagnostics, sourceRoot } from './diagnostics.mjs';
 
 export function argumentsFor(inputs, reports) {
   const paths = (inputs.paths ?? '.').split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
@@ -22,6 +22,7 @@ export async function check(binary, inputs, workspace, reportDirectory) {
   await mkdir(reportDirectory, { recursive: true });
   const reports = { json: path.join(reportDirectory, 'unswell.json'), sarif: path.join(reportDirectory, 'unswell.sarif') };
   const args = argumentsFor(inputs, reports);
+  const diagnosticRoot = await sourceRoot(directory);
   const child = spawn(binary, args, { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] });
   const status = new Promise((resolve, reject) => {
     child.once('error', reject);
@@ -31,8 +32,8 @@ export async function check(binary, inputs, workspace, reportDirectory) {
     });
   });
   const operations = [status,
-    forwardDiagnostics(child.stdout, process.stdout, directory),
-    forwardDiagnostics(child.stderr, process.stderr, directory)];
+    forwardDiagnostics(child.stdout, process.stdout, diagnosticRoot),
+    forwardDiagnostics(child.stderr, process.stderr, diagnosticRoot)];
   try {
     const [code] = await Promise.all(operations);
     return { code, reports };

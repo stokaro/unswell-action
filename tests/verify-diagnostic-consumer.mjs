@@ -27,7 +27,8 @@ for (const [id, code, count] of [
   assert.equal(sarif.version, '2.1.0');
   assert.equal(sarif.runs[0].invocations[0].executionSuccessful, true);
   for (const finding of result.findings) {
-    expected.push({ path: `artifacts/diagnostic consumer/${finding.primary.path}`,
+    assert.ok(finding.primary.path.startsWith('artifacts/diagnostic consumer/'));
+    expected.push({ path: finding.primary.path,
       start_line: finding.primary.start.line, start_column: finding.primary.start.column,
       annotation_level: { error: 'failure', warning: 'warning', note: 'notice' }[finding.severity],
       message: finding.message, rule: finding.rule_id });

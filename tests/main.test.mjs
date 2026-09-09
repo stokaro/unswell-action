@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -33,36 +33,41 @@ test('real action entry point preserves levels, reports, cleanup, and exit codes
   const fixture = await releaseFixture(process.env.UNSWELL_TEST_BINARY, path.join(temporary, 'release'));
   const directory = path.join(temporary, 'project with spaces');
   await diagnosticFixtures(directory);
+  const canonicalDirectory = await realpath(directory);
   const cases = [
     ['warning', 'warning case.go', 0, 1], ['error', 'error case.go', 1, 1], ['note', 'note case.go', 0, 1],
     ['warning-forbid', 'warning case.go', 1, 1], ['negative', 'negative.go', 0, 0], ['injection', 'injection.md', 0, 1],
     ['missing', 'negative.go', 2, null],
   ];
-  for (const [name, source, code, count] of cases) {
-    await t.test(name, async () => {
-      const output = path.join(temporary, `${name}.outputs`);
-      await writeFile(output, '');
-      const env = { ...process.env, UNSWELL_RELEASE_FIXTURE: fixture, GITHUB_OUTPUT: output,
-        GITHUB_WORKSPACE: temporary, RUNNER_TEMP: temporary, INPUT_VERSION: '0.0.0-test', INPUT_PATHS: source,
-        INPUT_CONFIG: `${name}.yaml`, 'INPUT_WORKING-DIRECTORY': 'project with spaces' };
-      let result;
-      try { result = await execute(process.execPath, ['--import', hook, action], { env }); }
-      catch (error) { result = error; }
-      assert.equal(result.code ?? 0, code, result.stderr);
-      const values = outputs(await readFile(output, 'utf8'));
-      assert.equal(values['exit-code'], String(code));
-      const log = result.stdout;
-      assert.match(log, /::add-matcher::[^\n]+\n::stop-commands::/);
-      assert.equal((log.match(/::remove-matcher owner=/g) ?? []).length, 2);
-      if (count !== null) {
-        const json = JSON.parse(await readFile(values['report-json'], 'utf8'));
-        assert.equal(json.findings.length, count);
-        if (count) assert.match(log, new RegExp(path.resolve(directory).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-        assert.equal(JSON.parse(await readFile(values['report-sarif'], 'utf8')).version, '2.1.0');
-        const names = await readdir(path.dirname(path.dirname(values['report-json'])));
-        assert.deepEqual(names, ['reports']);
-      }
-      if (name === 'injection') assert.match(log, /::error::UNSWELL_SOURCE_INJECTION/);
-    });
+  for (const repository of [false, true]) {
+    if (repository) await execute('git', ['init', temporary]);
+    for (const [name, source, code, count] of cases) {
+      await t.test(`${repository ? 'git' : 'plain'}/${name}`, async () => {
+        const output = path.join(temporary, `${name}.outputs`);
+        await writeFile(output, '');
+        const env = { ...process.env, UNSWELL_RELEASE_FIXTURE: fixture, GITHUB_OUTPUT: output,
+          GITHUB_WORKSPACE: temporary, RUNNER_TEMP: temporary, INPUT_VERSION: '0.0.0-test', INPUT_PATHS: source,
+          INPUT_CONFIG: `${name}.yaml`, 'INPUT_WORKING-DIRECTORY': 'project with spaces' };
+        let result;
+        try { result = await execute(process.execPath, ['--import', hook, action], { env }); }
+        catch (error) { result = error; }
+        assert.equal(result.code ?? 0, code, result.stderr);
+        const values = outputs(await readFile(output, 'utf8'));
+        assert.equal(values['exit-code'], String(code));
+        const log = result.stdout;
+        assert.match(log, /::add-matcher::[^\n]+\n::stop-commands::/);
+        assert.equal((log.match(/::remove-matcher owner=/g) ?? []).length, 2);
+        if (count !== null) {
+          const json = JSON.parse(await readFile(values['report-json'], 'utf8'));
+          assert.equal(json.findings.length, count);
+          if (count) assert.equal(json.findings[0].primary.path, repository ? `project with spaces/${source}` : source);
+          if (count) assert.ok(log.includes(path.join(canonicalDirectory, source)), log);
+          assert.equal(JSON.parse(await readFile(values['report-sarif'], 'utf8')).version, '2.1.0');
+          const names = await readdir(path.dirname(path.dirname(values['report-json'])));
+          assert.deepEqual(names, ['reports']);
+        }
+        if (name === 'injection') assert.match(log, /::error::UNSWELL_SOURCE_INJECTION/);
+      });
+    }
   }
 });
