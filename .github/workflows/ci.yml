@@ -6,6 +6,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  UNSWELL_CLI_COMMIT: e38f724340010deedb9065557f76ed61c10c9180
 jobs:
   consumer:
     uses: ./.github/workflows/published-release.yml
@@ -30,7 +32,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: stokaro/unswell
-          ref: 532b826e2991504979a4b64865d9f1fbd4409244
+          ref: e38f724340010deedb9065557f76ed61c10c9180
           path: artifacts/unswell-source
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -43,9 +45,95 @@ jobs:
         env:
           CGO_ENABLED: '0'
           GOTOOLCHAIN: local
-        run: go build -trimpath -o "$UNSWELL_TEST_BINARY" ./cmd/unswell
+        run: |
+          test "$(git rev-parse HEAD)" = "$UNSWELL_CLI_COMMIT"
+          go build -trimpath -ldflags "-X github.com/stokaro/unswell.BuildCommit=$UNSWELL_CLI_COMMIT" -o "$UNSWELL_TEST_BINARY" ./cmd/unswell
       - run: npm run check
       - run: npm test
+      - name: Prepare pinned CLI and consumer fixtures
+        id: diagnostic_fixture
+        run: node tests/prepare-diagnostic-consumer.mjs
+      - name: Register a consumer matcher with a common owner
+        shell: bash
+        run: echo '::add-matcher::artifacts/consumer-matcher.json'
+      - name: Verify warning through the real action entry point
+        id: diag_warning
+        uses: ./
+        env:
+          NODE_OPTIONS: --import ${{ steps.diagnostic_fixture.outputs.hook }}
+          UNSWELL_RELEASE_FIXTURE: ${{ steps.diagnostic_fixture.outputs.fixture }}
+        with:
+          version: 0.0.0-test
+          paths: 'warning case.go'
+          config: warning.yaml
+          working-directory: artifacts/diagnostic consumer
+      - name: Verify note through the real action entry point
+        id: diag_note
+        uses: ./
+        env:
+          NODE_OPTIONS: --import ${{ steps.diagnostic_fixture.outputs.hook }}
+          UNSWELL_RELEASE_FIXTURE: ${{ steps.diagnostic_fixture.outputs.fixture }}
+        with:
+          version: 0.0.0-test
+          paths: 'note case.go'
+          config: note.yaml
+          working-directory: artifacts/diagnostic consumer
+      - name: Verify error through the real action entry point
+        id: diag_error
+        continue-on-error: true
+        uses: ./
+        env:
+          NODE_OPTIONS: --import ${{ steps.diagnostic_fixture.outputs.hook }}
+          UNSWELL_RELEASE_FIXTURE: ${{ steps.diagnostic_fixture.outputs.fixture }}
+        with:
+          version: 0.0.0-test
+          paths: 'error case.go'
+          config: error.yaml
+          working-directory: artifacts/diagnostic consumer
+      - name: Verify forbid through the real action entry point
+        id: diag_forbid
+        continue-on-error: true
+        uses: ./
+        env:
+          NODE_OPTIONS: --import ${{ steps.diagnostic_fixture.outputs.hook }}
+          UNSWELL_RELEASE_FIXTURE: ${{ steps.diagnostic_fixture.outputs.fixture }}
+        with:
+          version: 0.0.0-test
+          paths: 'warning case.go'
+          config: warning-forbid.yaml
+          working-directory: artifacts/diagnostic consumer
+      - name: Verify negative through the real action entry point
+        id: diag_negative
+        uses: ./
+        env:
+          NODE_OPTIONS: --import ${{ steps.diagnostic_fixture.outputs.hook }}
+          UNSWELL_RELEASE_FIXTURE: ${{ steps.diagnostic_fixture.outputs.fixture }}
+        with:
+          version: 0.0.0-test
+          paths: 'negative.go'
+          config: negative.yaml
+          working-directory: artifacts/diagnostic consumer
+      - name: Verify injection through the real action entry point
+        id: diag_injection
+        uses: ./
+        env:
+          NODE_OPTIONS: --import ${{ steps.diagnostic_fixture.outputs.hook }}
+          UNSWELL_RELEASE_FIXTURE: ${{ steps.diagnostic_fixture.outputs.fixture }}
+        with:
+          version: 0.0.0-test
+          paths: 'injection.md'
+          config: injection.yaml
+          working-directory: artifacts/diagnostic consumer
+      - name: Verify reports and preserve annotation expectations
+        env:
+          CONSUMER_STEPS: ${{ toJSON(steps) }}
+        run: node tests/verify-diagnostic-consumer.mjs
+      - name: Verify consumer matchers still run after cleanup
+        shell: bash
+        run: |
+          echo 'CONSUMER_PROBE consumer matcher survived'
+          echo 'artifacts/diagnostic consumer/control.go:1:1: warning [cleanup.probe] action matcher removed'
+          echo '::remove-matcher owner=unswell::'
       - name: Check the action's source and documentation
         shell: bash
         run: '"$UNSWELL_TEST_BINARY" check . --config .unswell.yaml --report json:artifacts/dogfood.json'
@@ -53,5 +141,34 @@ jobs:
         if: always()
         with:
           name: action-evidence-${{ matrix.os }}
-          path: artifacts/dogfood.json
+          path: |
+            artifacts/dogfood.json
+            artifacts/diagnostic-evidence
           if-no-files-found: ignore
+  annotations:
+    name: Verify runner annotations
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: action-evidence-*
+          path: artifacts/downloaded
+      - name: Check annotations from the completed consumer jobs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tests/verify-run-annotations.mjs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: runner-annotation-evidence
+          path: artifacts/annotation-verification
+          if-no-files-found: error

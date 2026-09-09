@@ -77,7 +77,15 @@ for later workflow steps.
 
 The action writes SARIF 2.1.0 but does not upload code-scanning results or request
 `security-events: write`. A consuming workflow can add its own SARIF upload step.
-CLI snippets are kept as log data so source text cannot issue workflow commands.
+Diagnostic levels are preserved after `actions/setup-go`: warnings remain warnings,
+errors remain errors, and CLI notes become GitHub notices. The exit code still
+determines whether the step passes. Diagnostic paths resolve from the configured
+working directory, including directories and files with spaces.
+
+The action registers matchers with unique owners for each invocation and removes
+them afterward, including when the CLI fails. Consumer matchers stay registered.
+CLI output and source-controlled rule messages remain data while workflow commands
+are disabled. Operational error messages are escaped before becoming annotations.
 
 ## Self-checking
 
@@ -86,6 +94,16 @@ download, checksum, extraction and invocation paths against release-shaped test
 archives. It checks clean and bad drafts, malformed C#, YAML, context overrides,
 paths with spaces, missing policy files and both report formats. Changed archives,
 missing releases and ambiguous manifests must fail before execution.
+
+CI also invokes the action through `uses: ./` after `actions/setup-go`, using a
+release-shaped archive of the pinned CLI. A test-only Node preload supplies that
+archive to the normal installer; production download URLs are unchanged. Cases
+cover CRLF, warning/error/note levels, independent gate outcomes, command text in
+custom rule messages, and the two noun-stack regressions from Unswell #82. A
+subsequent job reads the completed jobs' annotations through the GitHub API and
+checks their actual levels and locations against the CLI reports. It also verifies
+that the consumer's Go matcher and a separately registered matcher survived cleanup.
+These fixtures prove runner integration, not public release installation.
 
 The `Verify published release` workflow additionally runs this action as a real
 consumer on all three operating systems. It downloads the public release, checks

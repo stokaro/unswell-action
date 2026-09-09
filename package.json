@@ -9,7 +9,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "node --test tests/check.test.mjs tests/install.test.mjs tests/update-release.test.mjs",
-    "check": "node --check src/main.mjs && node --check src/install.mjs && node --check src/check.mjs && node --check scripts/update-release.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check src/main.mjs && node --check src/install.mjs && node --check src/check.mjs && node --check src/diagnostics.mjs && node --check scripts/update-release.mjs"
   }
 }

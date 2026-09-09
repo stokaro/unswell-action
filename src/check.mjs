@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
+import { forwardDiagnostics } from './diagnostics.mjs';
 
 export function argumentsFor(inputs, reports) {
   const paths = (inputs.paths ?? '.').split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
@@ -21,13 +22,23 @@ export async function check(binary, inputs, workspace, reportDirectory) {
   await mkdir(reportDirectory, { recursive: true });
   const reports = { json: path.join(reportDirectory, 'unswell.json'), sarif: path.join(reportDirectory, 'unswell.sarif') };
   const args = argumentsFor(inputs, reports);
-  const code = await new Promise((resolve, reject) => {
-    const child = spawn(binary, args, { cwd: directory, stdio: ['ignore', 'inherit', 'inherit'] });
+  const child = spawn(binary, args, { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] });
+  const status = new Promise((resolve, reject) => {
     child.once('error', reject);
-    child.once('close', (status, signal) => {
+    child.once('close', (code, signal) => {
       if (signal) reject(new Error(`Unswell was terminated by ${signal}.`));
-      else resolve(status ?? 2);
+      else resolve(code ?? 2);
     });
   });
-  return { code, reports };
+  const operations = [status,
+    forwardDiagnostics(child.stdout, process.stdout, directory),
+    forwardDiagnostics(child.stderr, process.stderr, directory)];
+  try {
+    const [code] = await Promise.all(operations);
+    return { code, reports };
+  } catch (error) {
+    child.kill();
+    await Promise.allSettled(operations);
+    throw error;
+  }
 }
