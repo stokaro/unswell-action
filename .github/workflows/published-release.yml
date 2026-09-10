@@ -1,5 +1,11 @@
 name: Verify published release
 on:
+  workflow_call:
+    inputs:
+      version:
+        description: Exact version, or the action default when empty
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       version:

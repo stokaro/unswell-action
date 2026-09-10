@@ -9,8 +9,8 @@ The action downloads an exact Unswell release, verifies its archive against the
 published SHA-256 manifest, then runs the offline CLI. Linux, macOS and Windows
 are supported on AMD64 and ARM64. No API key or model service is needed.
 
-The first alpha is published as `v0.1.0-alpha.1`, with CLI `0.1.0-alpha.1` as its
-default. [Public release checks](https://github.com/stokaro/unswell-action/actions/runs/34134500799)
+The first alpha is published as `v0.1.0-alpha.1`. The current CLI default is
+recorded in [action.yml](action.yml). [Public release checks](https://github.com/stokaro/unswell-action/actions/runs/34134500799)
 passed on Linux, macOS and Windows, including policy and parser failures.
 
 ## Use the action
@@ -46,7 +46,7 @@ release and is not an independent signature.
 
 | Input | Default | Meaning |
 | --- | --- | --- |
-| `version` | `0.1.0-alpha.1` | Exact release version; an optional leading `v` is accepted |
+| `version` | See [action.yml](action.yml) | Exact release version; an optional leading `v` is accepted |
 | `paths` | `.` | One file or directory per line, relative to the working directory |
 | `config` | empty | Explicit policy file; when omitted, normal CLI discovery applies |
 | `working-directory` | `.` | Project directory inside the checked-out workspace |
@@ -90,8 +90,39 @@ missing releases and ambiguous manifests must fail before execution.
 The `Verify published release` workflow additionally runs this action as a real
 consumer on all three operating systems. It downloads the public release, checks
 this repository, and requires policy and parser failures to fail their steps with
-the expected outputs. Only that workflow establishes public installation evidence.
+the expected outputs. CI also calls that workflow with the action default. Before
+enabling automatic updates, require all three consumer checks and all three native
+test checks in the branch protection settings.
 
 The action has no npm runtime dependencies and uses the Node 24 runner runtime.
 To run its integration tests locally, build Unswell first, then set
 `UNSWELL_TEST_BINARY` to its absolute executable path and run `npm test`.
+
+## Automated release updates
+
+A successful Unswell release requests an update through `repository_dispatch`.
+The `Update default release` workflow also accepts a published tag manually.
+It verifies all six archive checksums, updates `action.yml`, `package.json`, and
+`src/default-version.mjs`, then creates a PR through the publish app. Repeating
+an update reuses its branch only if its files still match the expected output.
+Changes to other files or a PR owned by someone else stop the update.
+
+The required checks run on that PR without anyone touching it, and GitHub requests
+review from the code owners of the updated files. Main also requires the branch to
+be up to date, so when main has moved the maintainer clicks Update branch first
+and lets the checks rerun; updating dismisses an earlier approval, so update
+before approving. The maintainer then approves and squash-merges. The publish app
+has no review exception: it needs one approving review like every other author,
+and required tests, conversation resolution, the up-to-date branch requirement and
+the restrictions on force pushes and branch deletion stay in force. The workflow
+never merges.
+A successful main-branch CI run publishes an exact version tag and GitHub release.
+Existing tags are preserved, including the original alpha tag. Consumers should
+continue to pin the action commit independently of the CLI version.
+
+Setup requires organization variable `PUBLISH_APP_ID` and secret `PUBLISH_APP_KEY`
+to be available to this repository. The installed app needs Contents and Pull
+requests write access. Repository auto-merge stays disabled and main's review
+bypass list stays empty. Required tests, conversation resolution, and the
+restrictions on force pushes and branch deletion remain enabled.
+GitHub Actions does not need permission to approve pull requests.

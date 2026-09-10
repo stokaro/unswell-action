@@ -1,0 +1,49 @@
+name: Update default release
+on:
+  repository_dispatch:
+    types: [unswell-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published Unswell release tag
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: default-release-update
+  cancel-in-progress: false
+jobs:
+  update:
+    if: github.repository == 'stokaro/unswell-action' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ inputs.version || github.event.client_payload.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Validate the release identifier
+        run: node --input-type=module -e 'import { releaseVersion } from "./src/install.mjs"; releaseVersion(process.env.RELEASE_VERSION)'
+      - name: Download the published archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$RELEASE_VERSION" --repo stokaro/unswell --dir artifacts/release \
+            --pattern SHA256SUMS --pattern '*.tar.gz' --pattern '*.zip'
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: publish
+        with:
+          app-id: ${{ vars.PUBLISH_APP_ID }}
+          private-key: ${{ secrets.PUBLISH_APP_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Verify archives and open the update PR
+        env:
+          GH_TOKEN: ${{ steps.publish.outputs.token }}
+          PUBLISH_APP_SLUG: ${{ steps.publish.outputs.app-slug }}
+        run: node scripts/update-release.mjs

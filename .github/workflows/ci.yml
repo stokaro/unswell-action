@@ -7,6 +7,8 @@ on:
 permissions:
   contents: read
 jobs:
+  consumer:
+    uses: ./.github/workflows/published-release.yml
   test:
     name: Test (${{ matrix.os }})
     strategy:
