@@ -42,7 +42,7 @@ jobs:
           private-key: ${{ secrets.PUBLISH_APP_KEY }}
           permission-contents: write
           permission-pull-requests: write
-      - name: Verify archives and open the automatic update PR
+      - name: Verify archives and open the update PR
         env:
           GH_TOKEN: ${{ steps.publish.outputs.token }}
           PUBLISH_APP_SLUG: ${{ steps.publish.outputs.app-slug }}

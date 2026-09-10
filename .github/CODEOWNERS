@@ -1,0 +1,6 @@
+# A release update opens a pull request that changes these files. GitHub requests
+# review from their owners so the update does not wait unnoticed. Branch
+# protection does not require code-owner approval; this only routes the request.
+action.yml @denisvmedia
+package.json @denisvmedia
+src/default-version.mjs @denisvmedia

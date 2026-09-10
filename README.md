@@ -107,16 +107,22 @@ It verifies all six archive checksums, updates `action.yml`, `package.json`, and
 an update reuses its branch only if its files still match the expected output.
 Changes to other files or a PR owned by someone else stop the update.
 
-Once the setup below is complete, GitHub merges the PR after the six required
-checks pass. Grant the publish app a review exception on main; other authors must
-still receive an approving review.
+The required checks run on that PR without anyone touching it, and GitHub requests
+review from the code owners of the updated files. Main also requires the branch to
+be up to date, so when main has moved the maintainer clicks Update branch first
+and lets the checks rerun; updating dismisses an earlier approval, so update
+before approving. The maintainer then approves and squash-merges. The publish app
+has no review exception: it needs one approving review like every other author,
+and required tests, conversation resolution, the up-to-date branch requirement and
+the restrictions on force pushes and branch deletion stay in force. The workflow
+never merges.
 A successful main-branch CI run publishes an exact version tag and GitHub release.
 Existing tags are preserved, including the original alpha tag. Consumers should
 continue to pin the action commit independently of the CLI version.
 
 Setup requires organization variable `PUBLISH_APP_ID` and secret `PUBLISH_APP_KEY`
 to be available to this repository. The installed app needs Contents and Pull
-requests write access. Repository auto-merge must be enabled, and only that app
-belongs in main's review bypass list. Required tests, conversation resolution,
-and the restrictions on force pushes and branch deletion remain enabled.
+requests write access. Repository auto-merge stays disabled and main's review
+bypass list stays empty. Required tests, conversation resolution, and the
+restrictions on force pushes and branch deletion remain enabled.
 GitHub Actions does not need permission to approve pull requests.

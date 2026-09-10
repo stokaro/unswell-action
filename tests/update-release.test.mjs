@@ -60,7 +60,7 @@ test('all six archive checksums must pass, including non-host platforms', async 
   await assert.rejects(verifyArchives(directory, '0.2.0'), /exactly one checksum/);
 });
 
-test('only the matching app PR at the verified head can request merge', () => {
+test('only the matching app PR at the verified head is accepted as the update', () => {
   const pull = { baseRefName: 'main', headRefName: 'release/unswell-v0.2.0', headRefOid: 'abc',
     author: { login: 'app/ptah-publish', is_bot: true }, isCrossRepository: false };
   const validate = (value) => validatePull(value, pull.headRefName, pull.author.login, 'abc');

@@ -119,16 +119,19 @@ async function main() {
   } else {
     const body = path.join(process.env.RUNNER_TEMP, 'action-release-pr.md');
     await writeFile(body, `Update the default CLI to [Unswell v${version}](https://github.com/stokaro/unswell/releases/tag/v${version}).\n\n`
-      + 'All six archives match the published SHA-256 manifest. Required tests run the selected public release on Linux, macOS, and Windows before automatic squash merge.\n');
+      + 'All six archives match the published SHA-256 manifest. The required test jobs cover the action itself, and the consumer '
+      + 'jobs run the selected public release on Linux, macOS and Windows. A maintainer then approves and squash-merges this pull '
+      + 'request, updating the branch first when main has moved, because an update dismisses an earlier approval.\n');
     number = run('gh', 'pr', 'create', '--repo', repository, '--base', 'main', '--head', branch,
       '--title', `Update default Unswell release to ${version}`, '--body-file', body).split('/').at(-1);
   }
   const pull = JSON.parse(run('gh', 'pr', 'view', number, '--repo', repository, '--json',
     'baseRefName,headRefName,headRefOid,author,isCrossRepository'));
   validatePull(pull, branch, 'app/' + process.env.PUBLISH_APP_SLUG, head);
-  run('gh', 'pr', 'merge', number, '--repo', repository, '--auto', '--squash', '--match-head-commit', head);
   await writeFile(process.env.GITHUB_STEP_SUMMARY,
-    `[Action release PR](https://github.com/${repository}/pull/${number}) submitted for automatic merge after required checks.\n`, { flag: 'a' });
+    `[Action release PR](https://github.com/${repository}/pull/${number}) opened for review. Update its branch if main has moved, `
+    + 'then approve and squash-merge it once the required checks pass.\n',
+    { flag: 'a' });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();
