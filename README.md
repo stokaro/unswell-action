@@ -90,9 +90,8 @@ missing releases and ambiguous manifests must fail before execution.
 The `Verify published release` workflow additionally runs this action as a real
 consumer on all three operating systems. It downloads the public release, checks
 this repository, and requires policy and parser failures to fail their steps with
-the expected outputs. CI also calls that workflow with the action default. Before
-enabling automatic updates, require all three consumer checks and all three native
-test checks in the branch protection settings.
+the expected outputs. CI also calls that workflow with the action default. Main
+requires all three consumer checks and all three native test checks.
 
 The action has no npm runtime dependencies and uses the Node 24 runner runtime.
 To run its integration tests locally, build Unswell first, then set
@@ -112,8 +111,8 @@ review from the code owners of the updated files. Main also requires the branch 
 be up to date, so when main has moved the maintainer clicks Update branch first
 and lets the checks rerun; updating dismisses an earlier approval, so update
 before approving. The maintainer then approves and squash-merges. The publish app
-has no review exception: it needs one approving review like every other author,
-and required tests, conversation resolution, the up-to-date branch requirement and
+has no review exception: it needs one approving review like every other author.
+Required tests, conversation resolution, the up-to-date branch requirement, and
 the restrictions on force pushes and branch deletion stay in force. The workflow
 never merges.
 A successful main-branch CI run publishes an exact version tag and GitHub release.
