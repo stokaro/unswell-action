@@ -1,6 +1,6 @@
 {
   "name": "unswell-action",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.3",
   "private": true,
   "type": "module",
   "description": "Check source and documentation for AI-style wording using Unswell.",
