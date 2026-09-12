@@ -8,7 +8,7 @@ inputs:
   version:
     description: Exact Unswell release version, with or without the leading v.
     required: false
-    default: '0.1.0-alpha.1'
+    default: '0.1.0-alpha.3'
   paths:
     description: Files or directories to check, one path per line.
     required: false
