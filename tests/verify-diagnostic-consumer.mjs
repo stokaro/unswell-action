@@ -39,5 +39,7 @@ for (const [id, code, count] of [
   }
 }
 const evidence = { action_commit: process.env.GITHUB_SHA, cli_commit: process.env.UNSWELL_CLI_COMMIT,
+  repository: process.env.GITHUB_REPOSITORY, run_id: process.env.GITHUB_RUN_ID,
+  run_attempt: Number(process.env.GITHUB_RUN_ATTEMPT), runner_name: process.env.RUNNER_NAME,
   platform: process.platform, outcomes, expected };
 await writeFile('artifacts/diagnostic-evidence/expected.json', JSON.stringify(evidence, null, 2));

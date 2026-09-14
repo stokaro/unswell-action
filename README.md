@@ -106,6 +106,13 @@ checks their actual levels and locations against the CLI reports. It also verifi
 that the consumer's Go matcher and a separately registered matcher survived cleanup.
 These fixtures prove runner integration, not public release installation.
 
+Evidence artifacts retain their run, attempt, commit, and platform identities.
+On a partial rerun, the collector reads annotations from the attempt that produced
+the artifact and checks that its execution times and runner match the current job.
+A newly executed test must supply new evidence; missing or stale evidence fails
+verification. Artifact names include the attempt so earlier evidence remains
+available for inspection.
+
 The `Verify published release` workflow additionally runs this action as a real
 consumer on all three operating systems. It downloads the public release, checks
 this repository, and requires policy and parser failures to fail their steps with
