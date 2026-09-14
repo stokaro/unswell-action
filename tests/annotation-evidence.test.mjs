@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { collectAnnotationEvidence } from './annotation-evidence.mjs';
 
@@ -181,7 +181,7 @@ test('collector entry point reads attempt artifacts and retains their executed j
       return new Response(JSON.stringify(responses.get(url)), {status: 200});
     };
   `);
-  await promisify(execFile)(process.execPath, ['--import', path.join(directory, 'fetch.mjs'),
+  await promisify(execFile)(process.execPath, ['--import', pathToFileURL(path.join(directory, 'fetch.mjs')).href,
     fileURLToPath(new URL('./verify-run-annotations.mjs', import.meta.url))], {
     cwd: directory, env: { ...process.env, GITHUB_REPOSITORY: f.context.repository, GITHUB_RUN_ID: f.context.runID,
       GITHUB_RUN_ATTEMPT: '2', GITHUB_SHA: f.context.actionCommit, UNSWELL_CLI_COMMIT: f.context.cliCommit,
