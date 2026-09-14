@@ -38,7 +38,10 @@ async function main() {
     await reportOutput('report-sarif', result.reports.sarif);
     process.exitCode = result.code;
   } finally {
-    await rm(path.join(temporary, 'install'), { recursive: true, force: true });
+    // Windows may briefly retain a lock after the executable exits.
+    await rm(path.join(temporary, 'install'), {
+      recursive: true, force: true, maxRetries: 5, retryDelay: 100,
+    });
   }
 }
 

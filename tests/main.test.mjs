@@ -71,3 +71,42 @@ test('real action entry point preserves levels, reports, cleanup, and exit codes
     }
   }
 });
+
+test('cleanup retries preserve completed scans and report persistent errors', async (t) => {
+  assert.ok(process.env.UNSWELL_TEST_BINARY);
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'unswell-cleanup-'));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const fixture = await releaseFixture(process.env.UNSWELL_TEST_BINARY, path.join(temporary, 'release'));
+  await diagnosticFixtures(path.join(temporary, 'project'));
+  const cleanupHook = new URL('./cleanup-fixture.mjs', import.meta.url).href;
+  for (const [name, source, failure, code] of [
+    ['negative', 'negative.go', 'transient', 0],
+    ['error', 'error case.go', 'transient', 1],
+    ['negative', 'negative.go', 'persistent', 2],
+  ]) {
+    await t.test(`${name}/${failure}`, async () => {
+      const output = path.join(temporary, `${name}-${failure}.outputs`);
+      const attempts = path.join(temporary, `${name}-${failure}.attempts`);
+      await writeFile(output, '');
+      const env = { ...process.env, UNSWELL_RELEASE_FIXTURE: fixture, GITHUB_OUTPUT: output,
+        GITHUB_WORKSPACE: temporary, RUNNER_TEMP: temporary, INPUT_VERSION: '0.0.0-test', INPUT_PATHS: source,
+        INPUT_CONFIG: `${name}.yaml`, 'INPUT_WORKING-DIRECTORY': 'project',
+        UNSWELL_CLEANUP_FAILURE: failure, UNSWELL_CLEANUP_ATTEMPTS: attempts };
+      let result;
+      try { result = await execute(process.execPath, ['--import', cleanupHook, action], { env, timeout: 30_000 }); }
+      catch (error) { result = error; }
+      assert.equal(result.code ?? 0, code, result.stderr);
+      const values = outputs(await readFile(output, 'utf8'));
+      assert.equal(values['exit-code'], String(code));
+      const report = JSON.parse(await readFile(values['report-json'], 'utf8'));
+      assert.equal(report.status, 'complete');
+      assert.equal(report.gate.passed, name === 'negative');
+      assert.equal(JSON.parse(await readFile(values['report-sarif'], 'utf8')).version, '2.1.0');
+      const count = (await readFile(attempts, 'utf8')).trim().split('\n').length;
+      assert.ok(count >= 3, `Expected retries, got ${count} unlink attempts`);
+      const files = await readdir(path.dirname(path.dirname(values['report-json'])));
+      assert.equal(files.includes('install'), failure === 'persistent');
+      if (failure === 'persistent') assert.match(result.stdout, /Test executable is busy/);
+    });
+  }
+});
