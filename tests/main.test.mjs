@@ -72,6 +72,34 @@ test('real action entry point preserves levels, reports, cleanup, and exit codes
   }
 });
 
+test('timeout and jobs inputs reach the CLI through the action entry point', async (t) => {
+  assert.ok(process.env.UNSWELL_TEST_BINARY);
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'unswell-limits-'));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const fixture = await releaseFixture(process.env.UNSWELL_TEST_BINARY, path.join(temporary, 'release'));
+  await diagnosticFixtures(path.join(temporary, 'project'));
+  for (const [name, limits, code, message] of [
+    ['allowed', { INPUT_TIMEOUT: '2m', INPUT_JOBS: '2' }, 0, null],
+    ['expired', { INPUT_TIMEOUT: '1ns' }, 2, null],
+    ['malformed-timeout', { INPUT_TIMEOUT: '5' }, 2, /Set timeout to a duration/],
+    ['malformed-jobs', { INPUT_JOBS: 'many' }, 2, /Set jobs to a positive whole number/],
+  ]) {
+    await t.test(name, async () => {
+      const output = path.join(temporary, `${name}.outputs`);
+      await writeFile(output, '');
+      const env = { ...process.env, UNSWELL_RELEASE_FIXTURE: fixture, GITHUB_OUTPUT: output,
+        GITHUB_WORKSPACE: temporary, RUNNER_TEMP: temporary, INPUT_VERSION: '0.0.0-test', INPUT_PATHS: 'negative.go',
+        INPUT_CONFIG: 'negative.yaml', 'INPUT_WORKING-DIRECTORY': 'project', ...limits };
+      let result;
+      try { result = await execute(process.execPath, ['--import', hook, action], { env }); }
+      catch (error) { result = error; }
+      assert.equal(result.code ?? 0, code, result.stderr);
+      assert.equal(outputs(await readFile(output, 'utf8'))['exit-code'], String(code));
+      if (message) assert.match(result.stdout, message);
+    });
+  }
+});
+
 test('cleanup retries preserve completed scans and report persistent errors', async (t) => {
   assert.ok(process.env.UNSWELL_TEST_BINARY);
   const temporary = await mkdtemp(path.join(os.tmpdir(), 'unswell-cleanup-'));
