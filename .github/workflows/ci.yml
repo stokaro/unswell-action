@@ -137,7 +137,7 @@ jobs:
       - name: Check the action's source and documentation
         shell: bash
         run: '"$UNSWELL_TEST_BINARY" check . --config .unswell.yaml --report json:artifacts/dogfood.json'
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: action-evidence-${{ matrix.os }}-attempt-${{ github.run_attempt }}
@@ -166,7 +166,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node tests/verify-run-annotations.mjs
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: runner-annotation-evidence-attempt-${{ github.run_attempt }}
