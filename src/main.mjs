@@ -30,6 +30,8 @@ async function main() {
       paths: process.env.INPUT_PATHS ?? '.',
       config: process.env.INPUT_CONFIG ?? '',
       directory: process.env['INPUT_WORKING-DIRECTORY'] ?? '.',
+      timeout: process.env.INPUT_TIMEOUT ?? '',
+      jobs: process.env.INPUT_JOBS ?? '',
     };
     const result = await withDiagnostics(temporary, () =>
       check(installed.binary, inputs, process.env.GITHUB_WORKSPACE, path.join(temporary, 'reports')));

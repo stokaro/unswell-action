@@ -8,7 +8,7 @@ inputs:
   version:
     description: Exact Unswell release version, with or without the leading v.
     required: false
-    default: '0.1.0-alpha.4'
+    default: '0.1.0-alpha.8'
   paths:
     description: Files or directories to check, one path per line.
     required: false
@@ -21,6 +21,14 @@ inputs:
     description: Directory containing the project to check, relative to the checked-out workspace.
     required: false
     default: '.'
+  timeout:
+    description: Limit for the whole analysis, as a duration such as 90s or 5m. Empty keeps the CLI default of 30 seconds.
+    required: false
+    default: ''
+  jobs:
+    description: Number of concurrent source workers. Empty keeps the CLI default.
+    required: false
+    default: ''
 outputs:
   exit-code:
     description: CLI exit code. Zero passes, one means a policy violation, and two means an operational error.
