@@ -50,9 +50,16 @@ release and is not an independent signature.
 | `paths` | `.` | One file or directory per line, relative to the working directory |
 | `config` | empty | Explicit policy file; when omitted, normal CLI discovery applies |
 | `working-directory` | `.` | Project directory inside the checked-out workspace |
+| `timeout` | empty | Limit for the whole analysis, as a duration such as `90s` or `5m`; when omitted, the CLI stops after 30 seconds |
+| `jobs` | empty | Number of concurrent source workers; when omitted, the CLI default applies |
 
-Paths and configuration are passed as separate process arguments. There is no
-shell evaluation or free-form extra-arguments input. Blank lines are ignored;
+An analysis that reaches the timeout ends as an operational failure with exit
+code 2, so a large repository needs a longer `timeout`. The action rejects a
+`timeout` that is not a duration and a `jobs` value that is not a positive whole
+number before it starts the CLI.
+
+Paths, configuration, and these limits are passed as separate process arguments.
+There is no shell evaluation or free-form extra-arguments input. Blank lines are ignored;
 leading and trailing whitespace on each path is trimmed. Names containing newlines
 or intentional surrounding whitespace cannot be expressed by this input.
 

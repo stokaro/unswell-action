@@ -3,12 +3,32 @@ import { mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { forwardDiagnostics, sourceRoot } from './diagnostics.mjs';
 
+// A Go duration: one or more decimal numbers, each with a unit.
+const duration = /^(?:\d+(?:\.\d+)?(?:ns|us|µs|ms|s|m|h))+$/;
+
+// limits turns the optional timeout and jobs inputs into CLI arguments. The
+// CLI owns the accepted range; this only keeps a malformed value from reaching it.
+function limits(inputs) {
+  const args = [];
+  const timeout = (inputs.timeout ?? '').trim();
+  if (timeout) {
+    if (!duration.test(timeout)) throw new Error('Set timeout to a duration such as 90s or 5m.');
+    args.push('--timeout', timeout);
+  }
+  const jobs = (inputs.jobs ?? '').trim();
+  if (jobs) {
+    if (!/^[1-9]\d*$/.test(jobs)) throw new Error('Set jobs to a positive whole number.');
+    args.push('--jobs', jobs);
+  }
+  return args;
+}
+
 export function argumentsFor(inputs, reports) {
   const paths = (inputs.paths ?? '.').split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
   if (paths.length === 0) throw new Error('Set paths to at least one file or directory.');
   const args = ['check', '--report', `json:${reports.json}`, '--report', `sarif:${reports.sarif}`, '--report', 'text:-'];
   if (inputs.config) args.push('--config', inputs.config);
-  args.push('--', ...paths);
+  args.push(...limits(inputs), '--', ...paths);
   return args;
 }
 
